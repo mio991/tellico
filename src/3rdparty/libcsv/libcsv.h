@@ -33,9 +33,13 @@ Copyright (C) 2007  Robert Gamble
 #include <stdlib.h>
 #include <stdio.h>
 
-#define CSV_MAJOR 2
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define CSV_MAJOR 3
 #define CSV_MINOR 0
-#define CSV_RELEASE 1
+#define CSV_RELEASE 3
 
 /* Error Codes */
 #define CSV_SUCCESS 0
@@ -51,6 +55,10 @@ Copyright (C) 2007  Robert Gamble
 #define CSV_STRICT_FINI 4 /* causes csv_fini to return CSV_EPARSE if last
                              field is quoted and doesn't contain ending
                              quote */
+#define CSV_APPEND_NULL 8 /* Ensure that all fields are null-terminated */
+#define CSV_EMPTY_IS_NULL 16 /* Pass null pointer to cb1 function when
+                                empty, unquoted fields are encountered */
+
 
 /* Character values */
 #define CSV_TAB    0x09
@@ -64,33 +72,47 @@ struct csv_parser {
   int pstate;         /* Parser state */
   int quoted;         /* Is the current field a quoted field? */
   size_t spaces;      /* Number of continious spaces after quote or in a non-quoted field */
-  char * entry_buf;   /* Entry buffer */
+  unsigned char * entry_buf;   /* Entry buffer */
   size_t entry_pos;   /* Current position in entry_buf (and current size of entry) */
-  size_t entry_size;  /* Size of buffer */
+  size_t entry_size;  /* Size of entry buffer */
   int status;         /* Operation status */
   unsigned char options;
-  char quote_char;
-  char delim_char;
-  int (*is_space)(char);
-  int (*is_term)(char);
+  unsigned char quote_char;
+  unsigned char delim_char;
+  int (*is_space)(unsigned char);
+  int (*is_term)(unsigned char);
+  size_t blk_size;
+  void *(*malloc_func)(size_t);
+  void *(*realloc_func)(void *, size_t);
+  void (*free_func)(void *);
 };
 
-int csv_init(struct csv_parser **p, unsigned char options);
-int csv_fini(struct csv_parser *p, void (*cb1)(char *, size_t, void *), void (*cb2)(char, void *), void *data);
+/* Function Prototypes */
+int csv_init(struct csv_parser *p, unsigned char options);
+int csv_fini(struct csv_parser *p, void (*cb1)(void *, size_t, void *), void (*cb2)(int, void *), void *data);
 void csv_free(struct csv_parser *p);
 int csv_error(struct csv_parser *p);
-const char * csv_strerror(int error);
-size_t csv_parse(struct csv_parser *p, const char *s, size_t len, void (*cb1)(char *, size_t, void *), void (*cb2)(char, void *), void *data);
-size_t csv_write(char *dest, size_t dest_size, const char *src, size_t src_size);
-int csv_fwrite(FILE *fp, const char *src, size_t src_size);
-size_t csv_write2(char *dest, size_t dest_size, const char *src, size_t src_size, char quote);
-int csv_fwrite2(FILE *fp, const char *src, size_t src_size, char quote);
-int csv_opts(struct csv_parser *p, unsigned char options);
-void csv_set_delim(struct csv_parser *p, char c);
-void csv_set_quote(struct csv_parser *p, char c);
-char csv_get_delim(struct csv_parser *p);
-char csv_get_quote(struct csv_parser *p);
-void csv_set_space_func(struct csv_parser *p, int (*f)(char));
-void csv_set_term_func(struct csv_parser *p, int (*f)(char));
+char * csv_strerror(int error);
+size_t csv_parse(struct csv_parser *p, const void *s, size_t len, void (*cb1)(void *, size_t, void *), void (*cb2)(int, void *), void *data);
+size_t csv_write(void *dest, size_t dest_size, const void *src, size_t src_size);
+int csv_fwrite(FILE *fp, const void *src, size_t src_size);
+size_t csv_write2(void *dest, size_t dest_size, const void *src, size_t src_size, unsigned char quote);
+int csv_fwrite2(FILE *fp, const void *src, size_t src_size, unsigned char quote);
+int csv_get_opts(struct csv_parser *p);
+int csv_set_opts(struct csv_parser *p, unsigned char options);
+void csv_set_delim(struct csv_parser *p, unsigned char c);
+void csv_set_quote(struct csv_parser *p, unsigned char c);
+unsigned char csv_get_delim(struct csv_parser *p);
+unsigned char csv_get_quote(struct csv_parser *p);
+void csv_set_space_func(struct csv_parser *p, int (*f)(unsigned char));
+void csv_set_term_func(struct csv_parser *p, int (*f)(unsigned char));
+void csv_set_realloc_func(struct csv_parser *p, void *(*)(void *, size_t));
+void csv_set_free_func(struct csv_parser *p, void (*)(void *));
+void csv_set_blk_size(struct csv_parser *p, size_t);
+size_t csv_get_buffer_size(struct csv_parser *p);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
